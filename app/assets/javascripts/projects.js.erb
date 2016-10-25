@@ -1,0 +1,245 @@
+$(document).ready(projectPageInitialization);
+$(document).on('page:load', projectPageInitialization);
+
+
+function projectPageInitialization(){
+  window['ProjectObject'] = JSON.parse($('#slides-json-data').attr('data'));
+  $('#slide-fancy-tree').fancytree();
+  window['SlideTree'] = $('#slide-fancy-tree').fancytree('getTree');
+
+  var slideManager = new SlideManager(ProjectObject)
+
+  $('#create-block-buttons-container').find('i').on('mouseenter',function(){
+    // chang size
+    $(this).removeClass('fa-2x');
+    $(this).addClass('fa-3x');
+
+  }).on('mouseleave', function(){
+    // change size
+    $(this).removeClass('fa-3x');
+    $(this).addClass('fa-2x');
+  }).on('click', function(){
+    if ($(this).attr('id') === 'slide-creation'){
+      slideManager.createSlide();
+    }else{
+      slideManager.currentSlide.textBlockCreation();
+    }
+  })
+
+
+}
+
+
+
+var SlideManager = function(ProjectObject){
+  var self = this;
+  var $slideHolder = this.$slideHolder = $('#slide-holder')
+  var $slideBody = this.$slideBody = $('#slide-body');
+  var slides = this._slides =  ProjectObject.slides;
+  initSlide();
+  this.currentSlide = new Slide(slides[0], this);
+
+  function initSlide(){
+    $slideBody.resizable({
+      minHeight: 300,
+      minWidth: 300,
+      maxHeight: 500,
+      maxWidth: 600,
+      containment: "parent",
+      stop: function(event, ui){
+        self.currentSlide.updateSize(ui.size);
+      }
+    });
+
+    $slideHolder.draggable({
+      handle: '#slide-header',
+      containment: '#slide-body-container',
+      stop: function(event, pointer){
+        self.currentSlide.updatePosition($slideHolder.css('top'), $slideHolder.css('left'));
+      }
+    })
+  }
+}
+
+
+SlideManager.prototype.addNewSlideAt = function(position){
+  var newSlide =  new Slide(this.provideID(), this);
+  this.slides = this.slides.insertAt(position-1, newSlide);
+  this.activate(newSlide);
+  this.drawTree();
+}
+
+SlideManager.prototype.removeSlide = function(slide){
+  for (var i = 0; i < this.slides.length; i++){
+    if (this.slides[i] === slide){
+      this.slides = this.slides.removeAt(i);
+      if (i == 0){
+        this.activate(this.slides[0]);
+      }
+      else{
+        this.activate(this.slides[i - 1]);
+      }
+      this.drawTree();
+      break;
+    }
+  }
+}
+
+SlideManager.prototype.switchPosition = function(from, to){
+
+}
+
+
+// temporary id provider -> should be sent from backend
+SlideManager.prototype.provideID = function(){
+  return Math.floor((Math.random() * 10000) + 1);
+}
+
+SlideManager.prototype.getSlideTree = function(){
+  return $.map(this.slides, function(slide){
+    return slide.getTreeJson();
+  })
+}
+
+SlideManager.prototype.addSlide = function(position){
+  var id = this.provideID();
+  var newSlide = new Slide(id, this);
+  this.slides.push(newSlide);
+  this.activeSlide = newSlide;
+  //tbd
+  Utility.rootNode.addChildren()
+  Tree.tree.create_node('root', newSlide.getTreeJson());
+}
+
+/////////
+var Slide = function(slideJson, manager){
+  console.log(slideJson);
+  this.manager = manager;
+  this.slideJson = slideJson;
+  this.id = slideJson.id;
+  this.css = slideJson.css;
+  this.$slideHolder = $('#slide-holder');
+  this.$slideBody = $('#slide-body');
+  this.slides = [];
+  this.applyCss();
+  this.populateBlocks();
+
+  this.updateToServer = function(css){
+    var data = {css: JSON.stringify(this.css)}
+    $.ajax({
+      url: window.location.pathname + '/slides/1',
+      type: 'PUT',
+      dataType: 'json',
+      data: data,
+      success: function(data){
+        console.log(data);
+      }
+    })
+  }
+}
+
+Slide.prototype.populateBlocks = function(jsonData){
+  var self = this;
+  var textBlocks, imageBlocks;
+  if (jsonData){
+    textBlocks = jsonData.text_blocks;
+    imageBlocks = jsonData.image_blocks;
+  }else{
+    textBlocks = this.slideJson.text_blocks;
+    imageBlocks = this.slideJson.image_blocks;
+  }
+  $.each(textBlocks, function(index, textBlock){
+    self.slides.push(new TextBlocks(textBlock, self));
+  })
+}
+
+
+Slide.prototype.activate = function(){
+  console.log(333);
+  this.applyCss();
+  this.populateBlocks();
+}
+
+Slide.prototype.updateSize = function(size){
+  this.css.width = size.width + 'px';
+  this.css.height = size.height + 'px';
+  this.updateToServer();
+}
+
+Slide.prototype.updatePosition = function(top, left){
+  this.css.position.top = top;
+  this.css.position.left = left;
+  this.updateToServer();
+}
+
+Slide.prototype.applyCss = function(){
+  this.$slideHolder.css('top', this.css.position.top);
+  this.$slideHolder.css('left', this.css.position.left);
+  this.$slideBody.css('width', this.css.width);
+  this.$slideBody.css('height', this.css.height);
+  this.$slideBody.css('background', this.css.background);
+  this.$slideBody.css('border', this.css.border);
+}
+
+Slide.prototype.getTreeJson = function(){
+  return {
+    id          : this.id,
+    text        : '<span class>block-' + this.id + '</span>',
+    icon        : 'fa fa-building-o',
+    state       : {
+      opened    : true,
+      disabled  : false,
+      selected  : false
+    },
+    children    : this.blockManager.getBlockTree(),
+    li_attr     : {},
+    a_attr      : {}
+  }
+}
+
+Slide.prototype.textBlockCreation = function(){
+  var self = this;
+  $.ajax({
+    url: window.location.pathname + '/slides/1/textblocks/new',
+    type: 'get',
+    success: function(data){
+      self.slides.push(new TextBlocks(data, self))
+    }
+  })
+}
+
+Slide.prototype.imageBlockCreation = function(){
+  var newBlock = new ImageBlock(this.$blockContainer, this.blockManager);
+  var imageTree = newBlock.getTreeJson();
+  Tree.tree.create_node(this.id, imageTree[0], false, imageTree[1]);
+  return newBlock;
+}
+
+
+/////
+
+function BlockImageManager(slide){
+  this.group = {};
+  this.activeBlock = null;
+
+  this.addBlock = function(image, id){
+    this.group[id] = image;
+  }
+
+  this.removeBlock = function(id){
+    Tree.tree.delete_node(id);
+    delete this.group[id]
+  }
+
+  this.activate = function(image){
+    this.activeBlock = image;
+    Utility.bindBlockDecoratorTo(this.activeBlock.$body);
+  }
+}
+
+
+
+BlockImageManager.prototype.provideID = function(){
+  // this not correct now. should be sent by webserver when backend is added
+  return Math.floor((Math.random() * 10000) + 1);
+}

@@ -1,0 +1,57 @@
+<div id="slide-page-container">
+  <!-- on the left side ....... containing all the utilities for slide decorations (font, color, border...)
+  -->
+  <div id="slide-utility-container">
+    <div id="create-block-buttons-container" class="col-xs-12">
+
+      <!-- icons for create blocks in aslide
+      -->
+      <div class="icon-container">
+        <i id="slide-creation" class="fa fa-plus-circle fa-2x"></i>
+      </div>
+      <div class="icon-container">
+        <i id="text-block-creation" class="fa fa-plus-square fa-2x"></i>
+      </div>
+      <div class="icon-container">
+        <i id="image-block-creation" class="fa fa-picture-o fa-2x"></i>
+      </div>
+    </div>
+
+    <div class="col-xs-12" id="slide-tree-container">
+      <h4><%= @project.name %></h4>
+      <div id="slide-fancy-tree">
+        <% @project_json['slides'].each do |slide| %>
+          <ul>
+            <li>
+              <span id="slide-tree-<%= slide["slide-id"] %>"><%= "Slide number #{slide["position"]}" %></span>
+              <ul>
+              <% slide["text_blocks"].each do |text_block| %>
+                <li>
+                  <span id="text-block-tree-<%= text_block["id"] %>">
+                    <%= text_block %>
+                  </span>
+                </li>
+              <% end %>
+              <ul>
+            </li>
+          </ul>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- on the right side ...... containing slide pages, image boxes and text boxes....
+  -->
+  <div id="slide-body-container">
+    <span id="slides-json-data" class="hidden" data="<%= @project_json.to_json %>"></span>
+    <!-- hold slide, have this for dragging
+    -->
+    <div id="slide-holder">
+      <div id="slide-header">
+      </div>
+      <div id="slide-body">
+    </div>
+
+  </div>
+</div>
