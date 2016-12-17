@@ -8516,7 +8516,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    value: function create(value) {
 	      var node = _get(FormulaBlot.__proto__ || Object.getPrototypeOf(FormulaBlot), 'create', this).call(this, value);
 	      if (typeof value === 'string') {
-	        katex.render(value, node);
+	        katex.render(value, node, {throwOnError: false});
 	        node.setAttribute('data-value', value);
 	      }
 	      node.setAttribute('contenteditable', false);

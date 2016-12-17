@@ -1,7 +1,7 @@
 //////////// Quillll
 
 Quill.prototype.getNumberOfLines = function(){
-  return this.getText().match(/\n/g).length;
+  return $.parseHTML(this.getHTML()).length;
 }
 
 Quill.prototype.getTextAt = function(index){
@@ -23,17 +23,6 @@ Quill.prototype.appendEmptyLines = function(numberOfLine){
     html += '<div><br></div>'
   }
   this.setHTML(html);
-}
-
-Quill.prototype.getCurrentLineSelection = function(){
-  var newLineIndexes = $.merge([-1], this.getText().indexesOf('\n'));
-  var currentIndex = this.getSelection().end;
-  for (var i = 1; i < newLineIndexes.length; i++){
-    if (currentIndex >=  newLineIndexes[i-1] && currentIndex <= newLineIndexes[i]){
-      return i;
-    }
-  }
-  return -1;
 }
 
 Quill.prototype.isEmpty = function(index){
@@ -114,12 +103,12 @@ Quill.prototype.matchMultilinesCode = function(){
   return accumulator;
 }
 
-Quill.prototype.deleteLine = function(index){
+Quill.prototype.deleteEmptyLine = function(index){
   if (index <= 0 || index > this.getNumberOfLines() || this.getNumberOfLines() == 1){
     return null;
   }
   var new_line_indexes = $.merge([-1], this.getText().indexesOf('\n'));
-  this.deleteText(new_line_indexes[index-1], new_line_indexes[index]);
+  this.deleteText(new_line_indexes[index-1], 1, 'api');
 }
 
 // remove start to end, add new text
@@ -165,12 +154,19 @@ Quill.prototype.addLineAndSetText = function(lineNumber, text){
 }
 
 Quill.prototype.getIndex = function(index){
-  var newLineIndexes = $.merge([-1], this.getText().indexesOf('\n'));
+  var newLineIndexes = $.merge([-1], this.indexesOf('\n'));
   for (var i = 0; i < newLineIndexes.length - 1; i++){
     if (newLineIndexes[i] < index && newLineIndexes[i + 1] >= index){
       return {position: (index - newLineIndexes[i] - 1), line: (i + 1)};
     }
   }
+}
+
+Quill.prototype.indexesOf = function(str){
+  var content = this.getContents().ops.map(function (op) {
+    return typeof op.insert === 'string' ? op.insert : '|';
+  }).join('');
+  return content.indexesOf(str)
 }
 
 Quill.prototype.insertHtml = function(html, index){
@@ -181,9 +177,6 @@ Quill.prototype.insertHtml = function(html, index){
   this.$editorBody.children()[currentIndex.line - 1].outerHTML = selectedChild.outerHTML;
 }
 
-Quill.prototype.findRangeById = function(domId){
-  var childEl = $.parseHTML(this.getHTML());
-}
 
 Quill.prototype.positionOfMath = function(mathId){
   var childEls = $.parseHTML(this.getHTML());
@@ -287,7 +280,7 @@ Quill.prototype.setHTML = function(html){
 Quill.prototype.getTextAt = function(index){
   // legal index from 1 to n
   // if out of range return empty string
-  if (index > this.getLength() || index <= 0){
+  if (index > this.getNumberOfLines() || index <= 0){
     return '';
   }
 
@@ -306,16 +299,35 @@ Quill.prototype.appendLine = function(numberOfLine){
 
 Quill.prototype.deleteLine = function(index){
   // legal index: 1 .. length of lines
-  var index = index || this.getLength();
-  if (index <= 0 || index > this.getLength() || this.getLength() == 1){
+  var index = index || this.getNumberOfLines();
+  if (index <= 0 || index > this.getNumberOfLines() || this.getNumberOfLines() == 1){
     return;
   }
   var elements = $.parseHTML(this.getHTML());
   if (elements){
     ret = elements.pop(index - 1);
-    this.setHTML(elements);
+    var newHtml = $.map(elements, function(el){
+      return el.outerHTML;
+    });
+    this.setHTML(newHtml.join(''));
     return ret
   }
+}
+
+Quill.prototype.getCurrentLineSelection = function(){
+  var newLineIndexes = $.merge([-1], this.indexesOf('\n'));
+  var currentIndex = this.getSelection().index;
+  console.log(currentIndex)
+  console.log(newLineIndexes)
+  for (var i = 1; i < newLineIndexes.length; i++){
+    if (currentIndex >=  newLineIndexes[i-1] && currentIndex <= newLineIndexes[i]){
+      if (this.getTextAt(i) !== ''){
+        return i + 1;
+      }
+      return i;
+    }
+  }
+  return -1;
 }
 
 

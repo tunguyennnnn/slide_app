@@ -13,18 +13,30 @@ function TextBlocks(textblockObject, slide){
   this.$body = this.$block.find('.text-block-body');
   this.$review = this.$block.find('.text-block-body-mirror');
   this.$toolbar = this.$block.find('.textblock-toolbar');
-  this.textEditor = new Quill(this.$body.get(0));
+
+  // initialize quill
+  this.textEditor = new Quill(this.$body.get(0), {
+    modules: {
+      formula: true,          // Include formula module
+    },
+  });
   x = self;
   this.$editorBody = this.$block.find('.ql-editor').first();
   this.textEditor.$editorBody = this.$editorBody;
   this.applyCss();
   this.applyHtml();
 
-  // initialize quill
+  //init Math
+  this.mathReviewer = new MathBlock(this.$block);
+  this._mathId = 0;
 
-
+  //init code:
+  this.$codeAutoComplete = this.$block.find('.language-input').first();
+  this.codeAutoComplete = new Awesomplete(this.$codeAutoComplete.get(0));
+  this.$codeAutoCompleteBlock = this.$block.find('div.awesomplete').first();
   function text_block_html_generator(id){
     var html = '<div class="text-block-container" id="text-block-container-' + id + '">'
+    html +=     '<input class="language-input" data-list="' + hljs.listLanguages().join(',') + '"/>'
     html +=     '<div class="textblock-toolbar">'
     html +=       '<div class="close-block-icon"><i class="fa fa-close"></i></div>'
     html +=       '<div class="review-block-icon"><i class="fa fa-refresh fa-pulse fa-1x fa-fw"></i></div>'
@@ -39,6 +51,22 @@ function TextBlocks(textblockObject, slide){
     html +=   '</div>'
     return html;
   }
+
+  function populateMath(){
+    var $mathEls = self.$editorBody.find('.ql-formula');
+    $mathEls.each(function(index, mathEl){
+      var $mathEl = $(mathEl);
+      $mathEl.addClass('math-block-' + self._mathId);
+      self.mathId++;
+      $mathEl.on('click', function(){
+        setTimeout(function(){
+          var selection = self.textEditor.getSelection().index;
+          self.mathReviewer.show($mathEl.position(), applyMath($mathEl), afterMath($mathEl, selection-1), $mathEl.attr('data-value'));
+        }, 0)
+      })
+    });
+  }
+  populateMath();
 
   function showHideButtons(){
     self.$block.on('mouseenter', function(){
@@ -97,7 +125,7 @@ function TextBlocks(textblockObject, slide){
         if (padding > MIN_PADDING){
           minHeight -= (padding - MIN_PADDING);
         }
-        for (var i = self.textEditor.getLength(); i > 0; i--){
+        for (var i = self.textEditor.getNumberOfLines(); i > 0; i--){
           var text = self.textEditor.getTextAt(i);
           if (text === ''){
             if (i == 1) break;
@@ -112,12 +140,16 @@ function TextBlocks(textblockObject, slide){
         if (ui.size.height <= minHeight){
           $(this).css('height', minHeight - borderSize*2);
         }
-
       },
       stop: function(event, ui){
         var diff;
         if (ui.size.height < originalHeight){
-          diff = originalHeight - ui.size.height;
+          if (ui.size.height <= minHeight){
+            diff = originalHeight - minHeight;
+          }
+          else{
+            diff = originalHeight - ui.size.height;
+          }
           while (diff > ALINE_HEIGHT){
             self.textEditor.deleteLine();
             diff -=  ALINE_HEIGHT;
@@ -158,6 +190,130 @@ function TextBlocks(textblockObject, slide){
   }
   handleBlockResizing();
 
+  ///////////////////// handle editor typing/////////////////////
+  function handleEditor(){
+    var typingTimer;
+    var typingInterval = 1000;
+    var reachMath = false;
+    var reachCode = 0;
+    self.textEditor.on('text-change', function(delta, oldContent, source){
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(finishedTyping, typingInterval);
+      if (source === 'user'){
+        var changeObject = (delta.ops[1] ? delta.ops[1] : delta.ops[0]);
+        if (changeObject.insert){
+          var keyPress = changeObject.insert;
+          if (keyPress === '\n'){
+            handleNewLine();
+          }
+          else if(keyPress === '$'){
+            if (reachMath){
+              handleTypingMath();
+              reachMath = false;
+            }
+            else{
+              reachMath = true;
+            }
+          }
+          else if(keyPress === "'"){
+            if (reachCode >= 2){
+              handleTypingCode();
+              reachCode = 0;
+            }
+            else{
+              reachCode++;
+            }
+          }
+          else{
+            reachCode = 0;
+            reachMath = false;
+          }
+        }
+        else{
+          reachCode = 0;
+          reachMath = false;
+        }
+      }
+    });
+
+    function handleNewLine(){
+      var current_line = self.textEditor.getCurrentLineSelection();
+      var numberOfLine = self.textEditor.getNumberOfLines();
+      if (current_line !=  numberOfLine){
+        if (self.textEditor.getTextAt(numberOfLine) === ''){
+          self.textEditor.deleteEmptyLine(numberOfLine);
+        }
+      }
+    }
+
+    function finishedTyping(){
+      self.updateToServer({update_data: {html: self.textEditor.getHTML()}})
+    }
+
+
+    //////////////////// handle code typing/////////////////////////////
+    function handleTypingCode(){
+      //init code
+      self.$codeAutoCompleteBlock.show();
+      self.$codeAutoComplete.click();
+    }
+
+    //////////////////// handle math typing/////////////////////////////
+    function handleTypingMath(){
+      var PREMATH_LENGTH = 2;
+      var MATH_SYMBOL = 'math?'
+      var editor = self.textEditor;
+      var selection = editor.getSelection().index;
+      console.log(selection)
+      var htmlContent = self.textEditor.getHTML();
+      setTimeout(function() {
+        editor.insertText(selection, MATH_SYMBOL);
+        editor.setSelection(selection, MATH_SYMBOL.length, 'silent');
+        self.textEditor.once('text-change', function(delta, oldContent, source){
+          if (source === 'user'){
+            var changeObject = (delta.ops[1] ? delta.ops[1] : delta.ops[0]);
+            if (changeObject.insert){
+              var keyPress = changeObject.insert;
+              if (keyPress === '\t' || keyPress === '\n'){
+                self.textEditor.setHTML(htmlContent);
+                //editor.deleteText(selection - PREMATH_LENGTH, PREMATH_LENGTH, 'silent')
+                var newId = 'math-element-' + self._mathId;
+                self._mathId++;
+                editor.insertHtml('<span class="ql-formula '+ newId +'" contenteditable="false"> </span>', selection - PREMATH_LENGTH);
+                var $newMath = self.$editorBody.find('.' + newId).first();
+                self.mathReviewer.show($newMath.position(), applyMath($newMath), afterMath($newMath, selection - PREMATH_LENGTH));
+              }
+            }
+          }
+        });
+      }, 0)
+    }
+  }
+  handleEditor();
+  ////////// Math functionss
+  function applyMath($element){
+    return function applyMath(text){
+      $element.attr('data-value', text.replace('\n', ''));
+      katex.render(text, $element[0], {throwOnError: false})
+    }
+  }
+
+  function afterMath($element, startPosition){
+    return function(hasMath){
+      setTimeout(function(){
+        console.log("aaa " + startPosition)
+        if (hasMath){
+          $element.attr('data-value', $element.attr('data-value').replace('\n', ''));
+          self.textEditor.insertText(startPosition+1, ' ')
+          self.textEditor.setSelection(startPosition + 2);
+        }
+        else{
+          self.textEditor.setSelection(startPosition);
+        }
+      }, 0)
+    }
+  }
+  //////////////////////////////////////////////////////////////////
 }
 
 TextBlocks.prototype.updateToServer = function(data){
@@ -186,7 +342,7 @@ TextBlocks.prototype.applyCss = function(css){
 
 TextBlocks.prototype.applyHtml = function(html){
   var html = html || this.htmlContent;
-  this.$editorBody.html(html);
+  this.textEditor.pasteHTML(0, html, 'api');
 }
 
 
@@ -508,7 +664,6 @@ function TextBlock(manager){
               self.textEditor.getSelection();
               self.textEditor.setSelection(selection , selection , 'user');
               self.textEditor.insertText(selection, " ");
-
             }
           }
           else{

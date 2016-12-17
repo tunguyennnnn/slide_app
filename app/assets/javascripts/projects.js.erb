@@ -24,12 +24,8 @@ function projectPageInitialization(){
     }else{
       slideManager.currentSlide.textBlockCreation();
     }
-  })
-
-
+  });
 }
-
-
 
 var SlideManager = function(ProjectObject){
   var self = this;
@@ -215,9 +211,7 @@ Slide.prototype.imageBlockCreation = function(){
   return newBlock;
 }
 
-
 /////
-
 function BlockImageManager(slide){
   this.group = {};
   this.activeBlock = null;

@@ -1,0 +1,74 @@
+.text-block-container{
+  // do not put property high
+  border-radius: 10px;
+  position: relative;
+  //display: table;
+
+  .textblock-toolbar{
+    position: absolute;
+    border-top-right-radius: 5px;
+    border-top-left-radius: 5px;
+    top: -20px;
+    height: 70%;
+    width: 100%;
+    background: #E9967A;
+    display: none;
+
+    .close-block-icon{
+      float: left;
+    }
+
+    .review-block-icon{
+      float: left;
+      z-index: 2;
+    }
+
+    .copy-paste-icon{
+      float: left;
+      z-index: 2;
+    }
+
+    .add-image-icon{
+      float: left;
+      z-index: 2;
+    }
+
+    .text-block-drag{
+      float: right;
+      border-top-right-radius: 5px;
+      background-color: rgba(40, 192, 255, 0.5);
+      height: 100%;
+      width: 30%;
+      z-index: 10;
+    }
+  }
+
+  .text-block-body{
+    position: relative;
+  }
+
+  div.awesomplete{
+    display: none;
+    position: absolute;
+    z-index: 1001;
+  }
+  .text-block-body-mirror{
+    position: relative;
+    background-color: white;
+    border-radius: 10px;
+    border-style: solid;
+    height: 100%;
+    width: 100%;
+    display: none;
+  }
+
+  .text-block-cover{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(65,65,65,0.5);
+    display: none;
+  }
+}

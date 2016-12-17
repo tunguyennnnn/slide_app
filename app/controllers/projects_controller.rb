@@ -1,5 +1,4 @@
 class ProjectsController < ApplicationController
-
   def show
     @project = Project.find(params[:id])
     @project_json = @project.as_json(
@@ -25,7 +24,6 @@ class ProjectsController < ApplicationController
       }
     )
   end
-
 
   def index
   end
