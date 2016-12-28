@@ -18,6 +18,7 @@ function TextBlocks(textblockObject, slide){
   this.textEditor = new Quill(this.$body.get(0), {
     modules: {
       formula: true,          // Include formula module
+      syntax: true
     },
   });
   x = self;
@@ -30,13 +31,10 @@ function TextBlocks(textblockObject, slide){
   this.mathReviewer = new MathBlock(this.$block);
   this._mathId = 0;
 
-  //init code:
-  this.$codeAutoComplete = this.$block.find('.language-input').first();
-  this.codeAutoComplete = new Awesomplete(this.$codeAutoComplete.get(0));
-  this.$codeAutoCompleteBlock = this.$block.find('div.awesomplete').first();
+  this.state = new TextEditorState();
+
   function text_block_html_generator(id){
     var html = '<div class="text-block-container" id="text-block-container-' + id + '">'
-    html +=     '<input class="language-input" data-list="' + hljs.listLanguages().join(',') + '"/>'
     html +=     '<div class="textblock-toolbar">'
     html +=       '<div class="close-block-icon"><i class="fa fa-close"></i></div>'
     html +=       '<div class="review-block-icon"><i class="fa fa-refresh fa-pulse fa-1x fa-fw"></i></div>'
@@ -52,6 +50,16 @@ function TextBlocks(textblockObject, slide){
     return html;
   }
 
+
+  ///// init code
+  function initCode(){
+    self.$editorBody.find('pre').each(function(i, block) {
+      hljs.highlightBlock(block);
+    });
+  }
+  initCode();
+
+  ////// init math
   function populateMath(){
     var $mathEls = self.$editorBody.find('.ql-formula');
     $mathEls.each(function(index, mathEl){
@@ -67,6 +75,27 @@ function TextBlocks(textblockObject, slide){
     });
   }
   populateMath();
+
+  //////// init auto complete
+  function initAutocomplete(){
+    self.autoComplete = new autocomplete({
+      selector: self.$body[0],
+      minChars: 2,
+      source: function(term, suggest){
+        term = term.toLowerCase();
+        var choices = hljs.listLanguages();
+        var matches = [];
+        for (i=0; i<choices.length; i++)
+            if (~choices[i].toLowerCase().indexOf(term)) matches.push(choices[i]);
+        suggest(matches);
+      },
+      onSelect: function(e, term, item){
+        console.log(term);
+      }
+    });
+  }
+  initAutocomplete();
+
 
   function showHideButtons(){
     self.$block.on('mouseenter', function(){
@@ -191,17 +220,160 @@ function TextBlocks(textblockObject, slide){
   handleBlockResizing();
 
   ///////////////////// handle editor typing/////////////////////
+
+  function onKeyPress(){
+    var typingTimer;
+    var typingInterval = 1000;
+    self.$editorBody.off().on('keydown', function(e){
+      var keyCode = window.event ? e.keyCode : e.which;
+      if (self.state.state === 'AUTOCOMPLETE'){
+        if (keyCode == 40 || keyCode == 38){
+          e.preventDefault();
+          self.state.changeState('COMPLETE');
+          self.state.completeWord = self.autoComplete.keyPress(keyCode);
+        }
+        else if (keyCode == 27){
+          e.preventDefault();
+          self.state.changeState('TEXT');
+          self.autoComplete.keyPress(keyCode);
+        }
+        //NOTE enter on prevent default don't work
+      }
+      else if (self.state.state === 'TEXT'){
+        if (self.state.lastState === 'COMPLETE'){
+          if (keyCode == 13 || keyCode == 9){
+            // recover the old text:
+
+            var index = self.textEditor.getSelection().index;
+            self.state.changeState('PASTINGHTML');
+            self.textEditor.setHTML(self.state.lastHtml);
+            self.autoComplete.hideAuto();
+            var oldWord = self.textEditor.getCurrentWord(index - 1);
+            self.textEditor.deleteText(index - oldWord.length-1, oldWord.length, 'user');
+            self.textEditor.insertText(index - oldWord.length-1, self.state.completeWord, 'user');
+            self.textEditor.setSelection(index - oldWord.length - 1 + self.state.completeWord.length);
+            self.autoComplete.hideAuto();
+            setTimeout(function(){
+              self.state.changeState('TEXT');
+            }, 0);
+          }
+        }
+      }
+      else if (keyCode == 8){
+        if (self.state.state === 'CODE'){
+
+        }
+      }
+    });
+
+    self.textEditor.on('text-change', function(delta, oldContent, source){
+      if (source === 'user' && self.state.state !== 'PASTINGHTML'){
+        self.state.updateHtml(self.textEditor.getHTML());
+        if (self.textEditor.getSelection()){
+          self.state.updateIndex(self.textEditor.getSelection().index);
+        }
+
+        // store change after very typingInterval
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(finishedTyping, typingInterval);
+
+        var state = determineState();
+        console.log(state);
+        if (state === 'PREMATH'){
+          self.state.changeState(state);
+          handleMath();
+        }
+        else if (state === 'PRECODE'){
+          self.state.changeState(state);
+          handleCode();
+        }
+        else if (state === 'TEXT'){
+          var index = self.textEditor.getSelection().index;
+          var lineInfo = self.textEditor.getIndex(index);
+          var word = self.textEditor.getCurrentWord();
+          var bound = self.textEditor.getBounds(index);
+          if (word.length > 1){
+            self.state.changeState('AUTOCOMPLETE');
+            self.autoComplete.showAuto(word, {top: bound.bottom, left: bound.left});
+          }else{
+            self.state.changeState('TEXT');
+            self.autoComplete.hideAuto();
+          }
+        }
+      }
+    });
+
+  }
+  onKeyPress();
+
+  function handleMath(){
+    console.log('math')
+  }
+
+  function handleCode(){
+    var index = self.textEditor.getSelection().index;
+    var line = self.textEditor.getIndex(index).line;
+    self.state.changeState('PASTINGHTML');
+    self.$editorBody.children().eq(line - 1).replaceWith('<pre class="ql-syntax" spellcheck="false"></pre>');
+    self.$editorBody.find('pre').each(function(i, block) {
+      hljs.highlightBlock(block);
+    });
+    setTimeout(function(){
+      self.textEditor.setSelection(index - 3);
+      self.state.changeState('CODE');
+    }, 0)
+  }
+  function determineState(){
+    var selection = self.textEditor.getSelection();
+    var lineInfo = self.textEditor.getIndex(selection.index);
+    var structure = self.textEditor.getLinesStructure();
+    /// if in a pre tag -> code
+    if (structure[lineInfo.line - 1] === 'CODE'){
+      return 'CODE'
+    }
+    else{
+      if (selection.length == 0){
+        var index = selection.index;
+        if (index > 0){
+          if (index >= 2 && self.textEditor.getTextAtIndex(index-1) === '$' && self.textEditor.getTextAtIndex(index-2) === '$'){
+            return 'PREMATH'
+          }
+          else if (index >= 3 && self.textEditor.getTextAtIndex(index-1) === "'"
+                                  && self.textEditor.getTextAtIndex(index-2) === "'"
+                                    && self.textEditor.getTextAtIndex(index-3) === "'"){
+            return 'PRECODE'
+          }else{
+            return 'TEXT'
+          }
+        }
+        else{
+          return 'TEXT'
+        }
+      }
+      else{
+        return 'TEXT';
+      }
+    }
+  }
+
+  function finishedTyping(){
+    self.updateToServer({update_data: {html: self.textEditor.getHTML()}})
+  }
+
+
   function handleEditor(){
     var typingTimer;
     var typingInterval = 1000;
     var reachMath = false;
     var reachCode = 0;
     self.textEditor.on('text-change', function(delta, oldContent, source){
+      //self.autoComplete.specificEl = self.$editorBody.children()[self.textEditor.getIndex(self.textEditor.getSelection().index).line - 1]
       clearTimeout(typingTimer);
       typingTimer = setTimeout(finishedTyping, typingInterval);
       if (source === 'user'){
         var changeObject = (delta.ops[1] ? delta.ops[1] : delta.ops[0]);
         if (changeObject.insert){
+
           var keyPress = changeObject.insert;
           if (keyPress === '\n'){
             handleNewLine();
@@ -253,9 +425,15 @@ function TextBlocks(textblockObject, slide){
 
     //////////////////// handle code typing/////////////////////////////
     function handleTypingCode(){
-      //init code
-      self.$codeAutoCompleteBlock.show();
-      self.$codeAutoComplete.click();
+
+      var line = self.textEditor.getIndex().line;
+      self.$editorBody.children().eq(line - 1).replaceWith('<pre class="ql-syntax" spellcheck="false"></pre>');
+      self.$editorBody.find('pre').each(function(i, block) {
+        hljs.highlightBlock(block);
+      });
+      setTimeout(function(){
+        self.textEditor.setSelection(0);
+      }, 0)
     }
 
     //////////////////// handle math typing/////////////////////////////
@@ -264,7 +442,6 @@ function TextBlocks(textblockObject, slide){
       var MATH_SYMBOL = 'math?'
       var editor = self.textEditor;
       var selection = editor.getSelection().index;
-      console.log(selection)
       var htmlContent = self.textEditor.getHTML();
       setTimeout(function() {
         editor.insertText(selection, MATH_SYMBOL);
@@ -276,7 +453,7 @@ function TextBlocks(textblockObject, slide){
               var keyPress = changeObject.insert;
               if (keyPress === '\t' || keyPress === '\n'){
                 self.textEditor.setHTML(htmlContent);
-                //editor.deleteText(selection - PREMATH_LENGTH, PREMATH_LENGTH, 'silent')
+                editor.deleteText(selection - PREMATH_LENGTH, PREMATH_LENGTH, 'silent')
                 var newId = 'math-element-' + self._mathId;
                 self._mathId++;
                 editor.insertHtml('<span class="ql-formula '+ newId +'" contenteditable="false"> </span>', selection - PREMATH_LENGTH);
@@ -289,7 +466,7 @@ function TextBlocks(textblockObject, slide){
       }, 0)
     }
   }
-  handleEditor();
+  //handleEditor();
   ////////// Math functionss
   function applyMath($element){
     return function applyMath(text){
@@ -301,19 +478,74 @@ function TextBlocks(textblockObject, slide){
   function afterMath($element, startPosition){
     return function(hasMath){
       setTimeout(function(){
-        console.log("aaa " + startPosition)
         if (hasMath){
           $element.attr('data-value', $element.attr('data-value').replace('\n', ''));
           self.textEditor.insertText(startPosition+1, ' ')
           self.textEditor.setSelection(startPosition + 2);
+          $element.off().on('click', function(){
+            self.mathReviewer.show($element.position(), applyMath($element), afterMath($element,self.textEditor.getSelection().index - 1), $element.attr('data-value'))
+          })
         }
         else{
+          $element.remove();
           self.textEditor.setSelection(startPosition);
         }
       }, 0)
     }
   }
   //////////////////////////////////////////////////////////////////
+}
+
+TextBlocks.prototype.typingDecision = function(key){
+  // down (40), up (38)
+  if (key == 40 || key == 38){
+    if (this.STATE === 'AUTOCOMPLETE'){
+
+    }
+  }
+  // esc
+  else if (key == 27){
+
+  }
+  // enter
+  else if (key == 13) {
+    if (this.STATE === 'AUTOCOMPLETE'){
+
+    }
+    else if (this.STATE === 'CODE'){
+
+    }
+    else if (this.STATE === 'MATH'){
+
+    }
+    else{
+
+    }
+  }
+  // tab
+  else if (key == 9){
+    if (this.STATE === 'AUTOCOMPLETE'){
+
+    }
+    else if (this.STATE === 'CODE'){
+
+    }
+    else if (this.STATE === 'MATH'){
+
+    }
+  }
+  else if (key == 8){
+    if (this.STATE === 'AUTOCOMPLETE'){
+
+    }
+    else if (this.STATE === 'CODE'){
+
+    }
+    else if (this.STATE === 'MATH'){
+
+    }
+  }
+
 }
 
 TextBlocks.prototype.updateToServer = function(data){

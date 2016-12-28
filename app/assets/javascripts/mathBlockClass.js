@@ -88,13 +88,13 @@ MathBlock.prototype.show = function(position, applyMath, backFunction, math){
       if (changeObject.insert){
         var keyPress = changeObject.insert;
         if (keyPress === '\n' || keyPress === '\t'){
-          backFunction(true);
+          backFunction(fullText !== '\n');
           editor.off('text-change', handleMath);
           self.hide();
         }
       }
       else if (changeObject.delete){
-        if (fullText === ''){
+        if (fullText === '\n'){
           backFunction(false);
           editor.off('text-change', handleMath);
           self.hide();

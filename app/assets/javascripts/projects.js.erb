@@ -3,6 +3,12 @@ $(document).on('page:load', projectPageInitialization);
 
 
 function projectPageInitialization(){
+
+  // configure hljs
+  hljs.configure({
+    tabReplace: '  ',
+    useBR: false
+  });
   window['ProjectObject'] = JSON.parse($('#slides-json-data').attr('data'));
   $('#slide-fancy-tree').fancytree();
   window['SlideTree'] = $('#slide-fancy-tree').fancytree('getTree');

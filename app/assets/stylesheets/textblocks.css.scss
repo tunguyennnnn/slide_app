@@ -47,10 +47,9 @@
     position: relative;
   }
 
-  div.awesomplete{
-    display: none;
+  .auto-complete{
+    //display: none;
     position: absolute;
-    z-index: 1001;
   }
   .text-block-body-mirror{
     position: relative;

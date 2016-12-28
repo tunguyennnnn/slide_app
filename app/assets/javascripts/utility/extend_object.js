@@ -154,6 +154,7 @@ Quill.prototype.addLineAndSetText = function(lineNumber, text){
 }
 
 Quill.prototype.getIndex = function(index){
+  var index = index || this.getSelection().index;
   var newLineIndexes = $.merge([-1], this.indexesOf('\n'));
   for (var i = 0; i < newLineIndexes.length - 1; i++){
     if (newLineIndexes[i] < index && newLineIndexes[i + 1] >= index){
@@ -162,11 +163,78 @@ Quill.prototype.getIndex = function(index){
   }
 }
 
+Quill.prototype.getCodeBlock = function(index){
+  var index = index || this.getSelection().index;
+  var currentLine = this.getIndex(index).line;
+}
+
+Quill.prototype.getCurrentWord = function(index){
+  index = index || this.getSelection().index;
+  var positionInfo = this.getIndex(index);
+  var text = this.getTextAt(positionInfo.line);
+  var pos = positionInfo.position;
+  var buffer = '';
+  for (var i = 0; i <= text.length; i++){
+    if (i == pos){
+      return buffer
+    }
+    if (text[i] === ' ' || text[i] === '\t'){
+      buffer = '';
+    }
+    else{
+      buffer += text[i]
+    }
+  }
+  return ''
+}
+
+Quill.prototype.getLinesStructure = function(){
+  var ret = [];
+  this.$editorBody.children().each(function(index, tag){
+    if (tag.nodeName === 'PRE'){
+      var numOfLine = $(tag).text().split('\n').length - 1;
+      for (var i = 0; i < numOfLine; i++){
+        ret.push('CODE');
+      }
+    }
+    else{
+      ret.push('TEXT');
+    }
+  });
+  return ret;
+}
+
 Quill.prototype.indexesOf = function(str){
   var content = this.getContents().ops.map(function (op) {
     return typeof op.insert === 'string' ? op.insert : '|';
   }).join('');
   return content.indexesOf(str)
+}
+
+Quill.prototype.getTextAtIndex = function(position){
+  var i = 0;
+  var ret = '';
+  $.each(this.getContents().ops, function(index, op){
+    if (typeof op.insert === 'string'){
+      if (position < i + op.insert.length){
+        ret = op.insert[position - i];
+        return false;
+      }
+      else{
+        i += op.insert.length;
+      }
+    }
+    else{
+      if (i == position){
+        ret = op.insert;
+        return false;
+      }
+      else{
+        i += 1;
+      }
+    }
+  });
+  return ret;
 }
 
 Quill.prototype.insertHtml = function(html, index){
@@ -317,8 +385,6 @@ Quill.prototype.deleteLine = function(index){
 Quill.prototype.getCurrentLineSelection = function(){
   var newLineIndexes = $.merge([-1], this.indexesOf('\n'));
   var currentIndex = this.getSelection().index;
-  console.log(currentIndex)
-  console.log(newLineIndexes)
   for (var i = 1; i < newLineIndexes.length; i++){
     if (currentIndex >=  newLineIndexes[i-1] && currentIndex <= newLineIndexes[i]){
       if (this.getTextAt(i) !== ''){
@@ -368,8 +434,6 @@ function walkTheDomRecursive(func, node, depth, returnedFromParent){
     node = node.nextSibling();
   }
 }
-
-
 
 // provide pdf conversion functions
 $(function(){
