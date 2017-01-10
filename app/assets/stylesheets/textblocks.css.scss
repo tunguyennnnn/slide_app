@@ -45,12 +45,19 @@
 
   .text-block-body{
     position: relative;
+    .code-block-close-icon{
+      position: absolute;
+      color: black;
+      z-index: 10;
+      display: none;
+    }
   }
 
   .auto-complete{
     //display: none;
     position: absolute;
   }
+
   .text-block-body-mirror{
     position: relative;
     background-color: white;

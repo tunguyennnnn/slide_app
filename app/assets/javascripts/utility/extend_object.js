@@ -156,6 +156,8 @@ Quill.prototype.addLineAndSetText = function(lineNumber, text){
 Quill.prototype.getIndex = function(index){
   var index = index || this.getSelection().index;
   var newLineIndexes = $.merge([-1], this.indexesOf('\n'));
+  console.log(newLineIndexes);
+  console.log(index);
   for (var i = 0; i < newLineIndexes.length - 1; i++){
     if (newLineIndexes[i] < index && newLineIndexes[i + 1] >= index){
       return {position: (index - newLineIndexes[i] - 1), line: (i + 1)};
@@ -165,7 +167,21 @@ Quill.prototype.getIndex = function(index){
 
 Quill.prototype.getCodeBlock = function(index){
   var index = index || this.getSelection().index;
-  var currentLine = this.getIndex(index).line;
+  var currentLine = this.getIndex(index).line - 1;
+  var structure = this.getLinesStructure();
+  for (var i = currentLine;i >= 0; i--){
+    if (structure[i] === 'TEXT'){
+      currentLine = i + 1;
+      break;
+    }
+    else if (i == 0){
+      currentLine = 0;
+    }
+    else{
+      currentLine--;
+    }
+  }
+  return this.$editorBody.children()[currentLine];
 }
 
 Quill.prototype.getCurrentWord = function(index){
@@ -211,6 +227,21 @@ Quill.prototype.indexesOf = function(str){
   return content.indexesOf(str)
 }
 
+Quill.prototype.getLineNumber = function(index){
+  var lineInfo = this.getIndex();
+  var structure = this.getLinesStructure();
+  var line = lineInfo.line ;
+  if (line == 1){
+    return 1;
+  }
+  for (var i = line - 1; i > 0; i--){
+    if (structure[i] === 'CODE' && structure[i -1] === 'CODE'){
+      line--;
+    }
+  }
+  return line;
+}
+
 Quill.prototype.getTextAtIndex = function(position){
   var i = 0;
   var ret = '';
@@ -240,9 +271,10 @@ Quill.prototype.getTextAtIndex = function(position){
 Quill.prototype.insertHtml = function(html, index){
   var childEl = $.parseHTML(this.getHTML());
   var currentIndex = this.getIndex(index);
-  var selectedChild = childEl[currentIndex.line - 1]
+  var realLine = this.getLineNumber();
+  var selectedChild = childEl[realLine - 1]
   APPDOM.insertHTML(selectedChild, currentIndex.position, html);
-  this.$editorBody.children()[currentIndex.line - 1].outerHTML = selectedChild.outerHTML;
+  this.$editorBody.children()[realLine-1].outerHTML = selectedChild.outerHTML;
 }
 
 
@@ -490,17 +522,33 @@ $(function(){
   }
 
   function insertHTML(node, textPosition, html){
-    if (node.childNodes.length === 0 || (node.childNodes.length === 1 && node.childNodes[0].nodeName === 'BR')){
+    if (node.childNodes.length == 0 || (node.childNodes.length == 1 && node.childNodes[0].nodeName === 'BR')){
+      node.insertHTML = html;
+    }else{
+      $.each(node.childNodes, function(index, childNode){
+        if (childNode.nodeType == APPDOM.node.TEXT_NODE){
+          if (childNode.length >= textPosition){
+
+          }
+        }
+      });
+    }
+  }
+  function insertHTML(node, textPosition, html){
+    if (node.childNodes.length == 0 || (node.childNodes.length == 1 && node.childNodes[0].nodeName === 'BR')){
       node.innerHTML = html;
     }
     else{
       $.each(node.childNodes, function(index, childNode){
         if (childNode.nodeType == APPDOM.node.TEXT_NODE){
           if (childNode.length >= textPosition){
-            childNode.replaceData(textPosition, 0, html);
-            $.each($.parseHTML(childNode.textContent), function(index, new_node){
-              node.insertBefore( new_node, node.childNodes[index]);
-            });
+            var dupNode = childNode.cloneNode();
+            dupNode.replaceData(textPosition, 0, html);
+            var dupNodes = $.parseHTML(dupNode.textContent);
+            console.log(dupNodes);
+            for (var i = 0; i < dupNodes.length; i++){
+              node.insertBefore(dupNodes[i], childNode);
+            }
             node.removeChild(childNode);
             return false;
           }
@@ -509,7 +557,10 @@ $(function(){
           }
         }
         else{
-          if (childNode.textContent.length >= textPosition){
+          if (childNode.getAttribute('class').indexOf('ql-formula') != -1){
+            textPosition = textPosition - 1;
+          }
+          else if (childNode.textContent.length >= textPosition){
             insertHTML(childNode, textPosition, html);
             return false;
           }

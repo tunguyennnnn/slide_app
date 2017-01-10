@@ -9,7 +9,7 @@ class ProjectsController < ApplicationController
           only: [:id, :position],
           include: {
             text_blocks: {
-              only: [:id, :text_block_css, :html_content],
+              only: [:id, :block_css, :html_content],
               include: {
                 image_blocks: {
                   only: [:id, :image_block_css, :image_url]
@@ -18,6 +18,9 @@ class ProjectsController < ApplicationController
             },
             image_blocks: {
               only: [:id, :image_block_css, :image_url]
+            },
+            code_blocks: {
+              only: [:id, :block_css, :html_content]
             }
           }
         }

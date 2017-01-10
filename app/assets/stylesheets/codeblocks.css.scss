@@ -1,10 +1,10 @@
-.text-block-container{
+.code-block-container{
   // do not put property high
   border-radius: 10px;
   position: relative;
   //display: table;
 
-  .textblock-toolbar{
+  .codeblock-toolbar{
     position: absolute;
     border-top-right-radius: 5px;
     border-top-left-radius: 5px;
@@ -18,22 +18,7 @@
       float: left;
     }
 
-    .review-block-icon{
-      float: left;
-      z-index: 2;
-    }
-
-    .copy-paste-icon{
-      float: left;
-      z-index: 2;
-    }
-
-    .add-image-icon{
-      float: left;
-      z-index: 2;
-    }
-
-    .text-block-drag{
+    .code-block-drag{
       float: right;
       border-top-right-radius: 5px;
       background-color: rgba(40, 192, 255, 0.5);
@@ -43,21 +28,16 @@
     }
   }
 
-  .text-block-body{
+  .code-block-body{
     position: relative;
+    pre{
+      border: none;
+    }
   }
+  .code-block-body:focus {outline:0;}
 
-  .text-block-body-mirror{
-    position: relative;
-    background-color: white;
-    border-radius: 10px;
-    border-style: solid;
-    height: 100%;
-    width: 100%;
-    display: none;
-  }
 
-  .text-block-cover{
+  .code-block-cover{
     position: absolute;
     top: 0;
     left: 0;

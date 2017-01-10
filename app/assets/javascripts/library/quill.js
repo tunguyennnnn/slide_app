@@ -1,5 +1,5 @@
 /*!
- * Quill Editor v1.1.8
+ * Quill Editor v1.1.9
  * https://quilljs.com/
  * Copyright (c) 2014, Jason Chen
  * Copyright (c) 2013, salesforce.com
@@ -365,9 +365,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	            }
 	        });
 	        removedNodes.forEach(function (node) {
-	            if (node.parentNode != null &&
+	            // Check node has actually been removed
+	            // One exception is Chrome does not immediately remove IFRAMEs
+	            // from DOM but MutationRecord is correct in its reported removal
+	            if (node.parentNode != null && node.tagName !== 'IFRAME' &&
 	                (document.body.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_CONTAINED_BY)) {
-	                // Node has not actually been removed
 	                return;
 	            }
 	            var blot = Registry.find(node);
@@ -1495,6 +1497,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	            after.parent.insertBefore(blot, after);
 	        }
 	    };
+	    BlockBlot.prototype.update = function (mutations) {
+	        if (navigator.userAgent.match(/Trident/)) {
+	            this.attach();
+	        }
+	        else {
+	            _super.prototype.update.call(this, mutations);
+	        }
+	    };
 	    return BlockBlot;
 	}(format_1.default));
 	BlockBlot.blotName = 'block';
@@ -2162,7 +2172,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	Quill.events = _emitter4.default.events;
 	Quill.sources = _emitter4.default.sources;
 	// eslint-disable-next-line no-undef
-	Quill.version =  false ? 'dev' : ("1.1.8");
+	Quill.version =  false ? 'dev' : ("1.1.9");
 
 	Quill.imports = {
 	  'delta': _quillDelta2.default,
@@ -6750,11 +6760,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    if (ATTRIBUTE_ATTRIBUTORS[name] != null) {
 	      attr = ATTRIBUTE_ATTRIBUTORS[name];
-	      formats[attr.attrName] = attr.value(node);
+	      formats[attr.attrName] = attr.value(node) || undefined;
 	    }
 	    if (STYLE_ATTRIBUTORS[name] != null) {
 	      attr = STYLE_ATTRIBUTORS[name];
-	      formats[attr.attrName] = attr.value(node);
+	      formats[attr.attrName] = attr.value(node) || undefined;
 	    }
 	  });
 	  if (Object.keys(formats).length > 0) {
@@ -7359,10 +7369,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	    _this.addBinding({ key: Keyboard.keys.BACKSPACE }, { collapsed: false }, handleDeleteRange);
 	    _this.addBinding({ key: Keyboard.keys.DELETE }, { collapsed: false }, handleDeleteRange);
-	    if (/Trident/i.test(navigator.userAgent)) {
-	      _this.addBinding({ key: Keyboard.keys.BACKSPACE, shortKey: true }, handleBackspace);
-	      _this.addBinding({ key: Keyboard.keys.DELETE, shortKey: true }, handleDelete);
-	    }
 	    _this.listen();
 	    return _this;
 	  }
@@ -9557,7 +9563,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.buildPicker();
 	    this.select.style.display = 'none';
 	    this.select.parentNode.insertBefore(this.container, this.select);
-	    this.label.addEventListener('click', function () {
+	    this.label.addEventListener('mousedown', function () {
 	      _this.container.classList.toggle('ql-expanded');
 	    });
 	    this.select.addEventListener('change', this.update.bind(this));
@@ -9836,22 +9842,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    this.boundsContainer = boundsContainer || document.body;
 	    this.root = quill.addContainer('ql-tooltip');
 	    this.root.innerHTML = this.constructor.TEMPLATE;
-	    var offset = parseInt(window.getComputedStyle(this.root).marginTop);
 	    this.quill.root.addEventListener('scroll', function () {
-	      _this.root.style.marginTop = -1 * _this.quill.root.scrollTop + offset + 'px';
-	      _this.checkBounds();
+	      _this.root.style.marginTop = -1 * _this.quill.root.scrollTop + 'px';
 	    });
 	    this.hide();
 	  }
 
 	  _createClass(Tooltip, [{
-	    key: 'checkBounds',
-	    value: function checkBounds() {
-	      this.root.classList.toggle('ql-out-top', this.root.offsetTop <= 0);
-	      this.root.classList.remove('ql-out-bottom');
-	      this.root.classList.toggle('ql-out-bottom', this.root.offsetTop + this.root.offsetHeight >= this.quill.root.offsetHeight);
-	    }
-	  }, {
 	    key: 'hide',
 	    value: function hide() {
 	      this.root.classList.add('ql-hidden');
@@ -9863,6 +9860,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      var top = reference.bottom + this.quill.root.scrollTop;
 	      this.root.style.left = left + 'px';
 	      this.root.style.top = top + 'px';
+	      this.root.classList.remove('ql-flip');
 	      var containerBounds = this.boundsContainer.getBoundingClientRect();
 	      var rootBounds = this.root.getBoundingClientRect();
 	      var shift = 0;
@@ -9874,7 +9872,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	        shift = containerBounds.left - rootBounds.left;
 	        this.root.style.left = left + shift + 'px';
 	      }
-	      this.checkBounds();
+	      if (rootBounds.bottom > containerBounds.bottom) {
+	        var height = rootBounds.bottom - rootBounds.top;
+	        var verticalShift = containerBounds.bottom - rootBounds.bottom - height;
+	        this.root.style.top = top + verticalShift + 'px';
+	        this.root.classList.add('ql-flip');
+	      }
 	      return shift;
 	    }
 	  }, {
@@ -9986,9 +9989,9 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var _this2 = _possibleConstructorReturn(this, (BubbleTooltip.__proto__ || Object.getPrototypeOf(BubbleTooltip)).call(this, quill, bounds));
 
-	    _this2.quill.on(_emitter2.default.events.EDITOR_CHANGE, function (type, range) {
+	    _this2.quill.on(_emitter2.default.events.EDITOR_CHANGE, function (type, range, oldRange, source) {
 	      if (type !== _emitter2.default.events.SELECTION_CHANGE) return;
-	      if (range != null && range.length > 0) {
+	      if (range != null && range.length > 0 && source === _emitter2.default.sources.USER) {
 	        _this2.show();
 	        // Lock our width so we will expand beyond our offsetParent boundaries
 	        _this2.root.style.left = '0px';
@@ -10529,9 +10532,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	        event.preventDefault();
 	        _this3.hide();
 	      });
-	      this.quill.on(_emitter2.default.events.SELECTION_CHANGE, function (range) {
+	      this.quill.on(_emitter2.default.events.SELECTION_CHANGE, function (range, oldRange, source) {
 	        if (range == null) return;
-	        if (range.length === 0) {
+	        if (range.length === 0 && source === _emitter2.default.sources.USER) {
 	          var _quill$scroll$descend = _this3.quill.scroll.descendant(_link2.default, range.index),
 	              _quill$scroll$descend2 = _slicedToArray(_quill$scroll$descend, 2),
 	              link = _quill$scroll$descend2[0],

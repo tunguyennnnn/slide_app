@@ -2,7 +2,7 @@ function TextEditorState(defaultState){
   this.state = defaultState || 'TEXT';
   this.lastState = 'TEXT'
   this.completeWord = '';
-  this.allowedState = ['TEXT', 'CODE', 'MATH', 'PRECODE', 'PREMATH', 'AUTOCOMPLETE', 'COMPLETE', 'PASTINGHTML'];
+  this.allowedState = ['TEXT', 'CODE', 'MATH', 'PRECODE', 'PREMATH', 'AUTOCOMPLETE', 'COMPLETE', 'PASTINGHTML', 'CODEREMOVE', 'MATH-AUTOCOMPLETE', 'MATH-COMPLETE', 'CODE-COMPLETE', 'CODE-AUTOCOMPLETE'];
   this.html = ''
   this.lastHtml = ''
   this.index = 0;

@@ -11,13 +11,21 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160924011901) do
+ActiveRecord::Schema.define(version: 20170107072152) do
+
+  create_table "code_blocks", force: :cascade do |t|
+    t.integer  "slide_id"
+    t.string   "block_css"
+    t.string   "html_content"
+    t.datetime "created_at",   null: false
+    t.datetime "updated_at",   null: false
+  end
 
   create_table "image_blocks", force: :cascade do |t|
     t.string   "image_blockable_type"
     t.string   "image_blockable_id"
     t.string   "image_url"
-    t.string   "image_block_css"
+    t.string   "block_css"
     t.datetime "created_at",           null: false
     t.datetime "updated_at",           null: false
   end
@@ -39,10 +47,10 @@ ActiveRecord::Schema.define(version: 20160924011901) do
 
   create_table "text_blocks", force: :cascade do |t|
     t.integer  "slide_id"
-    t.string   "text_block_css"
+    t.string   "block_css"
     t.string   "html_content"
-    t.datetime "created_at",     null: false
-    t.datetime "updated_at",     null: false
+    t.datetime "created_at",   null: false
+    t.datetime "updated_at",   null: false
   end
 
 end

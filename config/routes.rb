@@ -7,6 +7,9 @@ Rails.application.routes.draw do
     resources :slides do
       resources :textblocks do
       end
+
+      resources :codeblocks do
+      end
     end
   end
   # The priority is based upon order of creation: first created -> highest priority.

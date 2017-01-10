@@ -50,26 +50,32 @@
         this.last_val = '';
 
         var self = this;
-        this.showAuto = function(text, position){
+        this.showAuto = function(text, position, suggestedWords){
           self.sc.style.left = position.left + 'px';
           self.sc.style.top = position.top + 'px'
           self.sc.style.display = 'block';
-          self.sc.innerHTML = suggest(text);
+          self.sc.innerHTML = suggest(text, suggestedWords);
         }
         this.hideAuto = function(){
           self.sc.innerHTML = '';
           self.sc.style.display = 'none';
         }
 
-        function suggest(text){
+        function suggest(text, suggestedWords){
           text = text.toLowerCase();
-          var choices = hljs.listLanguages();
-          var matches = [];
-          for (i=0; i<choices.length; i++)
-              if (~choices[i].toLowerCase().indexOf(text)) matches.push(choices[i]);
-          return matches.map(function(match){
-            return o.renderItem(match, text);
-          }).join('');
+          if (suggestedWords){
+            return suggestedWords.map(function(match){
+              return o.renderItem(match, match);
+            }).join('');
+          }else{
+            var choices = hljs.listLanguages();
+            var matches = [];
+            for (i=0; i<choices.length; i++)
+                if (~choices[i].toLowerCase().indexOf(text)) matches.push(choices[i]);
+            return matches.map(function(match){
+              return o.renderItem(match, text);
+            }).join('');
+          }
         }
 
         live('autocomplete-suggestion', 'mouseleave', function(e){

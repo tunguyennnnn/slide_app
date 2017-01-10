@@ -9,6 +9,7 @@ function projectPageInitialization(){
     tabReplace: '  ',
     useBR: false
   });
+
   window['ProjectObject'] = JSON.parse($('#slides-json-data').attr('data'));
   $('#slide-fancy-tree').fancytree();
   window['SlideTree'] = $('#slide-fancy-tree').fancytree('getTree');
@@ -25,10 +26,21 @@ function projectPageInitialization(){
     $(this).removeClass('fa-3x');
     $(this).addClass('fa-2x');
   }).on('click', function(){
-    if ($(this).attr('id') === 'slide-creation'){
-      slideManager.createSlide();
-    }else{
-      slideManager.currentSlide.textBlockCreation();
+    switch ($(this).attr('id')){
+      case "slide-creation":
+        slideManager.createSlide();
+        break;
+      case "text-block-creation":
+        slideManager.currentSlide.createTextBlock();
+        break;
+      case "image-block-creation":
+        slideManager.currentSlide.createImageBlock();
+        break;
+      case "code-block-creation":
+        slideManager.currentSlide.createCodeBock();
+        break;
+      default:
+        console.log("add more");
     }
   });
 }
@@ -122,7 +134,7 @@ var Slide = function(slideJson, manager){
   this.css = slideJson.css;
   this.$slideHolder = $('#slide-holder');
   this.$slideBody = $('#slide-body');
-  this.slides = [];
+  this.blocks = [];
   this.applyCss();
   this.populateBlocks();
 
@@ -142,16 +154,21 @@ var Slide = function(slideJson, manager){
 
 Slide.prototype.populateBlocks = function(jsonData){
   var self = this;
-  var textBlocks, imageBlocks;
+  var textBlocks, imageBlocks, codeBlocks;
   if (jsonData){
     textBlocks = jsonData.text_blocks;
     imageBlocks = jsonData.image_blocks;
+    codeBlocks = jsonData.code_blocks;
   }else{
     textBlocks = this.slideJson.text_blocks;
     imageBlocks = this.slideJson.image_blocks;
+    codeBlocks = this.slideJson.code_blocks;
   }
   $.each(textBlocks, function(index, textBlock){
-    self.slides.push(new TextBlocks(textBlock, self));
+    self.blocks.push(new TextBlocks(textBlock, self));
+  });
+  $.each(codeBlocks, function(index, codeBlock){
+    self.blocks.push(new CodeBlock(codeBlock, self));
   })
 }
 
@@ -199,22 +216,33 @@ Slide.prototype.getTreeJson = function(){
   }
 }
 
-Slide.prototype.textBlockCreation = function(){
+Slide.prototype.createTextBlock = function(){
   var self = this;
   $.ajax({
     url: window.location.pathname + '/slides/1/textblocks/new',
     type: 'get',
     success: function(data){
-      self.slides.push(new TextBlocks(data, self))
+      self.blocks.push(new TextBlocks(data, self));
     }
   })
 }
 
-Slide.prototype.imageBlockCreation = function(){
+Slide.prototype.createImageBlock = function(){
   var newBlock = new ImageBlock(this.$blockContainer, this.blockManager);
   var imageTree = newBlock.getTreeJson();
   Tree.tree.create_node(this.id, imageTree[0], false, imageTree[1]);
   return newBlock;
+}
+
+Slide.prototype.createCodeBock = function(){
+  var self = this;
+  $.ajax({
+    url: window.location.pathname + '/slides/1/codeblocks/new',
+    type: 'get',
+    success: function(data){
+      self.blocks.push(new CodeBlock(data, self));
+    }
+  })
 }
 
 /////

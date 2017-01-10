@@ -15,6 +15,9 @@
       <div class="icon-container">
         <i id="image-block-creation" class="fa fa-picture-o fa-2x"></i>
       </div>
+      <div class="icon-container">
+        <i id="code-block-creation" class="fa fa-qrcode fa-2x"></i>
+      </div>
     </div>
 
     <div class="col-xs-12" id="slide-tree-container">
@@ -55,3 +58,12 @@
 
   </div>
 </div>
+
+
+
+<div id="codetest" contenteditable="true"></div>
+<script>
+$('#codetest').each(function(i, block) {
+  hljs.highlightBlock(block);
+});
+</script>

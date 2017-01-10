@@ -1,13 +1,16 @@
-class TextblocksController < ApplicationController
+module TextEditorBlocks
+  extend ActiveSupport::Concern
+
   def new
-    @new_block = TextBlock.create(slide_id: params["slide_id"].to_i)
+    byebug
+    @block = this_model().create(slide_id: params["slide_id"].to_i)
     respond_to do |format|
       format.json { render json: @new_block}
     end
   end
 
   def update
-    @text_block = TextBlock.find(params["id"])
+    @text_block = this_model().find(params["id"])
     if params["update_data"]
       css = nil
       if params["update_data"]["css"]
@@ -30,10 +33,15 @@ class TextblocksController < ApplicationController
   end
 
   def destroy
-    if TextBlock.destroy(params["id"])
+    if this_model().destroy(params["id"])
       render json: true
     else
       render json: false
     end
   end
+
+  private
+    def this_model
+      controller_name.classify.constantize
+    end
 end

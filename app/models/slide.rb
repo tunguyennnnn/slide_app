@@ -1,6 +1,7 @@
 class Slide < ActiveRecord::Base
   belongs_to :project
   has_many :text_blocks
+  has_many :code_blocks
   has_many :image_blocks, as: :image_blockable
 
   DEFAULT_SLIDE_CSS = {position: {top: "0px", left: "0px"}, width: "500px",

@@ -1,6 +1,6 @@
-class CreateTextBlocks < ActiveRecord::Migration
+class CreateCodeBlocks < ActiveRecord::Migration
   def change
-    create_table :text_blocks do |t|
+    create_table :code_blocks do |t|
       t.integer :slide_id
       t.string :block_css
       t.string :html_content
